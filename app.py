@@ -21,7 +21,7 @@ if "camera_active" not in st.session_state:
     st.session_state.camera_active = False
 
 # --- Password Protection (Optional) ---
-password = st.text_input("Enter password", type="password")
+password = st.text_input("Enter password 123", type="password")
 
 # Stop if the password is incorrect
 if password != "123":
@@ -104,45 +104,6 @@ def process_frame(frame):
         cv2.putText(frame, emotion, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
 
     return frame, emotions_detected
-
-# --- Real-time Emotion Detection (renamed from Live Video Stream) ---
-def real_time_emotion_detection():
-    # Initialize webcam capture
-    cap = cv2.VideoCapture(0)
-
-    if not cap.isOpened():
-        st.error("Failed to access the webcam.")
-        return
-
-    frame_rate = 10  # Process every 10th frame
-    frame_counter = 0
-
-    # Display the first frame for initialization
-    frame_placeholder = st.empty()
-
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            st.error("Failed to capture frame.")
-            break
-
-        # Resize the frame to improve processing speed
-        frame_resized = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-        frame_counter += 1
-        if frame_counter % frame_rate == 0:
-            # Recognize faces and emotions in the frame
-            frame_processed, emotions = process_frame(frame_resized)
-
-            # Update the image in the Streamlit window
-            frame_placeholder.image(frame_processed, channels="RGB", use_container_width=True)
-
-        # Handle exit when 'Stop Camera' is clicked
-        if not st.session_state.camera_active:
-            cap.release()
-            break
-
-    cap.release()
 
 # --- Camera Functionality ---
 camera_active = st.session_state.get("camera_active", False)
@@ -243,114 +204,21 @@ def view_attendance_records():
     else:
         st.info("No attendance records available.")
 
-# --- Real-time Emotion and Face Recognition ---
-def real_time_face_and_emotion_recognition():
-    # Initialize webcam capture
-    cap = cv2.VideoCapture(0)
-
-    if not cap.isOpened():
-        st.error("Failed to access the webcam.")
-        return
-
-    frame_rate = 10  # Process every 10th frame
-    frame_counter = 0
-
-    # Display the first frame for initialization
-    frame_placeholder = st.empty()
-
-    # Track which faces have already had their attendance marked today
-    attended_faces = set()
-
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            st.error("Failed to capture frame.")
-            break
-
-        # Resize the frame to improve processing speed
-        frame_resized = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-        frame_counter += 1
-        if frame_counter % frame_rate == 0:
-            # Recognize faces and emotions in the frame
-            frame_processed, emotions = process_frame(frame_resized)
-
-            # Update the image in the Streamlit window
-            frame_placeholder.image(frame_processed, channels="RGB", use_container_width=True)
-
-            # Check if any face is detected and handle attendance
-            facesCurFrame = face_recognition.face_locations(frame_resized)
-            encodesCurFrame = face_recognition.face_encodings(frame_resized, facesCurFrame)
-
-            for encodeFace, faceLoc in zip(encodesCurFrame, facesCurFrame):
-                matches = face_recognition.compare_faces(encodeListKnown, encodeFace)
-                faceDis = face_recognition.face_distance(encodeListKnown, encodeFace)
-                matchIndex = np.argmin(faceDis)
-
-                if matches[matchIndex]:
-                    name = classnames[matchIndex].split("_")[0]
-                    roll_no = classnames[matchIndex].split("_")[1]
-
-                    # Ensure attendance is only marked once per day for the person
-                    if name + roll_no not in attended_faces:
-                        # Check if attendance for this person is already marked today
-                        date_today = datetime.now().strftime('%Y-%m-%d')
-                        cursor.execute("SELECT * FROM attendance WHERE name = ? AND roll_no = ? AND date = ?", (name, roll_no, date_today))
-                        existing_entry = cursor.fetchone()
-
-                        if not existing_entry:
-                            # If no attendance record exists for today, add a new record
-                            y1, x2, y2, x1 = faceLoc
-                            y1, x2, y2, x1 = y1 * 4, x2 * 4, y2 * 4, x1 * 4
-                            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                            cv2.putText(frame, name, (x1 + 6, y2 - 6), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-
-                            frame, detected_emotions = process_frame(frame)
-                            emotion = detected_emotions[0] if detected_emotions else "Unknown"
-
-                            # Insert attendance record into database
-                            time_now = datetime.now().strftime('%H:%M:%S')
-                            cursor.execute("INSERT INTO attendance (name, roll_no, date, time, status, emotion) VALUES (?, ?, ?, ?, 'Present', ?)", 
-                                           (name, roll_no, date_today, time_now, emotion))
-                            conn.commit()
-
-                            # Mark the face as attended for today
-                            attended_faces.add(name + roll_no)
-
-                            st.success(f"Attendance marked for {name} with emotion: {emotion}.")
-                        else:
-                            st.info(f"Attendance for {name} ({roll_no}) already marked today.")
-                    else:
-                        st.info(f"Attendance for {name} ({roll_no}) already marked today.")
-                else:
-                    st.warning("Face not recognized.")
-            
-        # Handle exit when 'Stop Camera' is clicked
-        if not st.session_state.camera_active:
-            cap.release()
-            break
-
-    cap.release()
-
 # --- Main Logic ---
 if __name__ == "__main__":
-    st.title("Face and Emotion Recognition Attendance System")
+    st.title("Face and Emotion Recognition Attendance System by Ravinder Kaur")
     # Larger title
     st.markdown("<h2 style='text-align: center;'>Can Detect:</h2>", unsafe_allow_html=True)
     # Smaller subtitle
     st.markdown("<h3 style='text-align: center;'>angry, fear, happy, neutral, sad, surprise</h3>", unsafe_allow_html=True)
 
-    app_mode = st.sidebar.selectbox("Select Mode", ["Recognize Face & Emotion", "Add New Face", "View Records", "Real-time Emotion Detection", "Real-time Emotion and Face Recognition"])
+    app_mode = st.sidebar.selectbox("Select Mode", ["Recognize Face & Emotion", "Add New Face", "View Records"])
 
     if app_mode == "Recognize Face & Emotion":
         recognize_face()
     elif app_mode == "Add New Face":
         add_new_face()
-    elif app_mode == "Real-time Emotion Detection":
-        real_time_emotion_detection()
     elif app_mode == "View Records":
         view_attendance_records()
-    elif app_mode == "Real-time Emotion and Face Recognition":
-        real_time_face_and_emotion_recognition()
 
     conn.close()
